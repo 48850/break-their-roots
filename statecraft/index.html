@@ -320,14 +320,14 @@ function results(title, big, sub, missed, again){
 }
 
 /* ---------- typed-answer grading (key-term matching) ---------- */
-const STOP = new Set('about after against also among and because been before being between both but could does down during each from have into just like more most much must only other over same should since some such than that their them then there these they this those through under until very were what when where which while with would your will shall upon onto within without often still every about made make many even doesn't don't can't isn't won't aren't wasn't didn't'.split(' '));
+const STOP = new Set('about after against also among and because been before being between both but could does down during each from have into just like more most much must only other over same should since some such than that their them then there these they this those through under until very were what when where which while with would your will shall upon onto within without often still every about made make many even'.split(' '));
 const WORD_RE = /\$?\d[\d,.]*%?|[A-Za-z][A-Za-z'\-]+/g;
 const keyOf = w => /\d/.test(w) ? w.replace(/[$,%]/g,'').replace(/\.$/,'') : w.toLowerCase().slice(0,5);
 function keywords(ans){
   const seen = new Set(), out = [];
   (ans.match(WORD_RE) || []).forEach(w => {
     const lw = w.toLowerCase(), isNum = /\d/.test(w), isCap = /^[A-Z]/.test(w) && w.length > 2;
-    if (STOP.has(lw) || !(isNum || isCap || lw.length >= 5)) return;
+    if (STOP.has(lw) || /'/.test(w) || !(isNum || isCap || lw.length >= 5)) return;
     const key = keyOf(w); if (seen.has(key)) return; seen.add(key);
     out.push({w, key, isNum, rank: (isNum ? 2 : 0) + (isCap ? 1 : 0)});
   });
