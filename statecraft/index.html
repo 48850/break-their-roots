@@ -61,6 +61,7 @@ button:focus-visible,.tile:focus-visible{outline:3px solid var(--gold);outline-o
 .mastery b{display:block;font-size:14.5px}
 .mastery .m{height:6px;background:var(--panel-2);border-radius:99px;margin-top:8px;overflow:hidden}
 .mastery .m i{display:block;height:100%;background:var(--good)}
+.mastery .m{padding:0;border:0}.mastery .m.seg{display:flex}.mastery .m.seg i{flex:none}
 .mastery small{color:var(--ink-3);font-size:12.5px;font-variant-numeric:tabular-nums}
 /* stage */
 .stage{padding-block:22px 60px}
@@ -231,6 +232,24 @@ b.good{color:var(--good)} b.part{color:var(--gold)} b.bad{color:var(--bad)}
 .feedback.thinking{color:var(--ink-2);display:flex;align-items:center;gap:10px}
 .gavel{display:inline-block;color:var(--gold);font-size:20px;animation:gavel .8s ease-in-out infinite}
 @keyframes gavel{50%{transform:rotate(-25deg)}}
+
+/* confidence buttons (Brainscape-style) */
+.confq{font-family:var(--f-display);font-weight:800;font-size:15px;color:var(--ink-2);margin:16px 0 8px;text-align:center}
+.conf{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.cbtn{border:2px solid var(--cc);background:color-mix(in srgb,var(--cc) 12%,var(--panel));color:var(--ink);border-radius:12px;padding:10px 4px 9px;display:flex;flex-direction:column;align-items:center;gap:2px;transition:transform .15s,background .15s}
+.cbtn b{font-family:var(--f-display);font-size:22px;line-height:1;color:var(--cc)}
+.cbtn span{font-size:12px;color:var(--ink-2);white-space:nowrap}
+.cbtn:not(:disabled):hover{transform:translateY(-2px);background:color-mix(in srgb,var(--cc) 26%,var(--panel))}
+.cbtn:disabled{opacity:.3;cursor:not-allowed}
+.cbtn.sug{background:var(--cc);box-shadow:0 0 0 3px color-mix(in srgb,var(--cc) 35%,transparent)}
+.cbtn.sug b,.cbtn.sug span{color:#121225}
+.cbtn.sug::after{content:'suggested';font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#121225;font-weight:700}
+.feedback .conf{margin-top:2px}
+.ovrow{margin-top:10px}.ovrow .btn{font-size:14px;padding:9px 14px}
+.fbk p{margin:10px 0 0;color:var(--ink);font-size:16px}
+.fbk small{display:block;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+.fbk .ok small{color:var(--good)} .fbk .fix small{color:var(--gold)}
+@media (max-width:520px){.conf{gap:5px}.cbtn{padding:9px 2px 8px}.cbtn span{font-size:10.5px;white-space:normal;text-align:center;line-height:1.15}.cbtn.sug::after{font-size:8.5px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 
@@ -254,6 +273,13 @@ const KEY = 'statecraft-v1';
 let S = {xp:0, streak:0, last:'', known:{}, best:{}, bosses:{}, sound:true};
 try { Object.assign(S, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch(e){}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} };
+S.conf = S.conf || {}; Object.keys(S.known || {}).forEach(id => { if (S.known[id] && !S.conf[id]) S.conf[id] = 4; });
+/* Brainscape-style confidence: 1 not at all … 5 perfectly */
+const CONF = [null, ['Not at all','#ff4d6d'], ['Barely','#ff8a3d'], ['Somewhat','#ffd23f'], ['Mostly','#9be15d'], ['Perfectly','#3ddc97']];
+const suggestConf = sc => sc >= 85 ? 5 : sc >= 65 ? 4 : sc >= 45 ? 3 : sc >= 20 ? 2 : 1;
+const setConf = (id, r) => { S.conf[id] = r; S.known[id] = r >= 4 ? 1 : 0; save(); };
+const confRow = (sug=0) => `<div class="confq">How well did you know this?</div><div class="conf" id="conf">${[1,2,3,4,5].map(r => `<button type="button" class="cbtn${r===sug?' sug':''}" data-r="${r}" style="--cc:${CONF[r][1]}"><b>${r}</b><span>${CONF[r][0]}</span></button>`).join('')}</div>`;
+const mastery = cards => { const n = cards.length || 1, sum = cards.reduce((t,c) => t + (S.conf[c.id] || 0), 0); return Math.round(100 * sum / (5*n)); };
 let sel = new Set([0]);   // selected deck indexes
 const $ = s => document.querySelector(s);
 const app = $('#app');
@@ -332,7 +358,7 @@ const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
 
 /* ---------- home ---------- */
 const MODES = [
-  {id:'learn', ic:'01', c:'var(--good)', name:'Learn', desc:'Flip cards. "Got it" masters a card; "Again" brings it back later.', best:() => ''},
+  {id:'learn', ic:'01', c:'var(--good)', name:'Learn', desc:'Flip cards and rate your confidence 1 to 5. Low-rated cards come back sooner; a 5 retires the card.', best:() => ''},
   {id:'blitz', ic:'02', c:'var(--gold)', name:'Quiz Blitz', desc:'10 multiple-choice questions, 15 seconds each. Build combos for multiplied points.', best:() => S.best[bestKey('blitz')] ? 'Best: ' + S.best[bestKey('blitz')] + ' pts' : 'No score yet'},
   {id:'match', ic:'03', c:'var(--xp)', name:'Match Rush', desc:'Pair 6 questions with their answers as fast as you can. Wrong pairs cost 3 seconds.', best:() => S.best[bestKey('match')] ? 'Best: ' + S.best[bestKey('match')].toFixed(1) + 's' : 'No time yet'},
   {id:'boss', ic:'04', c:'var(--bad)', name:'Boss Battle', desc:'Face your topic\'s boss in an illustrated arena. Answer to strike, type answers for special attacks, and don\'t lose all 3 hearts.', best:() => { const n = [...sel].filter(d => S.bosses[d]).length; return n + ' / ' + sel.size + ' bosses defeated'; }},
@@ -349,8 +375,9 @@ function home(){
     <div class="sect">2 · Choose a mode</div>
     <div class="modes">${MODES.map(m => `<button type="button" class="mode" data-m="${m.id}" style="--c:${m.c}"><span class="ic">${m.ic}</span><h3>${m.name}</h3><p>${m.desc}</p><span class="best">${m.best()}</span></button>`).join('')}</div>
     <div class="sect">Mastery</div>
-    <div class="mastery">${DECKS.map((d,i) => { const k = d.cards.filter((_,j) => S.known[i+':'+j]).length, p = Math.round(100*k/d.cards.length);
-      return `<div><b>${esc(d.name)}${S.bosses[i] ? ' · boss beaten' : ''}</b><div class="m"><i style="width:${p}%"></i></div><small>${k} / ${d.cards.length} mastered (${p}%)</small></div>`; }).join('')}</div>`;
+    <div class="mastery">${DECKS.map((d,i) => { const ids = d.cards.map((_,j) => i+':'+j), cnt = [0,0,0,0,0,0]; ids.forEach(id => cnt[S.conf[id] || 0]++);
+      const p = mastery(ids.map(id => ({id})));
+      return `<div><b>${esc(d.name)}${S.bosses[i] ? ' · boss beaten' : ''}</b><div class="m seg">${[5,4,3,2,1].map(r => cnt[r] ? `<i style="width:${100*cnt[r]/ids.length}%;background:${CONF[r][1]}"></i>` : '').join('')}</div><small>${p}% mastery · ${cnt[0]} unseen</small></div>`; }).join('')}</div>`;
   app.querySelectorAll('.chip[data-d]').forEach(b => b.onclick = () => { sel = new Set([+b.dataset.d]); home(); });
   $('#all').onclick = () => { sel = new Set(DECKS.map((_,i)=>i)); home(); };
   app.querySelectorAll('.mode').forEach(b => b.onclick = () => ({learn, blitz, match, boss, tf, recall})[b.dataset.m]());
@@ -366,7 +393,7 @@ function results(title, big, sub, missed, again){
 }
 
 /* ---------- typed-answer grading (key-term matching) ---------- */
-const STOP = new Set('about after against also among and because been before being between both but could does down during each from have into just like more most much must only other over same should since some such than that their them then there these they this those through under until very were what when where which while with would your will shall upon onto within without often still every about made make many even'.split(' '));
+const STOP = new Set('about after against also among and because been before being between both but could does down during each from have into just like more most much must only other over same should since some such than that their them then there these they this those through under until very were what when where which while with would your will shall upon onto within without often still every about made make many even the a an and in on of to for its it is as by at or no not all any was are has had can may who how why new one two her his our out yes'.split(' '));
 const WORD_RE = /\$?\d[\d,.]*%?|[A-Za-z][A-Za-z'\-]+/g;
 const keyOf = w => /\d/.test(w) ? w.replace(/[$,%]/g,'').replace(/\.$/,'') : w.toLowerCase().slice(0,5);
 function keywords(ans){
@@ -414,24 +441,33 @@ Decide how well the student's answer shows they know the key ideas in the model 
 Scoring: 80-100 correct and essentially complete; 50-79 core idea right but key details missing; 20-49 partly right or muddled; 0-19 wrong, irrelevant or empty.
 
 Reply with only this JSON:
-{"score": <integer 0-100>, "verdict": "correct" | "partial" | "incorrect", "feedback": "<1-2 short sentences to the student in Australian English: what they got right and what was missing or wrong>", "missing": ["<up to 3 short key points they left out or got wrong>"]}`;
+{"score": <integer 0-100>, "verdict": "correct" | "partial" | "incorrect", "right": "<one short sentence to the student on what they got right; empty string if nothing>", "improve": "<one short sentence: the single most useful fix, naming any factual error; if the answer is complete, a tip to make it exam-ready>", "missing": ["<up to 3 short key points they left out or got wrong>"]}
+Write to the student directly in Australian English. Be specific to this question, not generic.`;
 }
 async function judge(card, typed){
   const kw = grade(card.a, typed);
-  if (!typed.trim()) return {score:0, verdict:'incorrect', feedback:'No answer given.', missing:[], kw, ai:false};
+  if (!typed.trim()) return {score:0, verdict:'incorrect', right:'', improve:'Have a go next time: even a rough answer makes the real one stick better.', missing:[], kw, ai:false};
   if (aiReady()){
     try {
       const r = await SAMPLE.json(judgePrompt(card, typed), {modelTier:'quick'});
       const score = Math.max(0, Math.min(100, Math.round(Number(r && r.score) || 0)));
       const v = ['correct','partial','incorrect'].includes(r && r.verdict) ? r.verdict : (score >= 75 ? 'correct' : score >= 40 ? 'partial' : 'incorrect');
-      return {score, verdict:v, feedback:String((r && r.feedback) || '').slice(0, 400), missing:Array.isArray(r && r.missing) ? r.missing.slice(0,3).map(x => String(x).slice(0,120)) : [], kw, ai:true};
+      return {score, verdict:v, right:String((r && (r.right ?? r.feedback)) || '').slice(0, 300), improve:String((r && r.improve) || '').slice(0, 300), missing:Array.isArray(r && r.missing) ? r.missing.slice(0,3).map(x => String(x).slice(0,120)) : [], kw, ai:true};
     } catch(e){
       if (['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed','session_expired'].includes(e && e.code)){ SAMPLE = null; paintBar(); aiNote = 'The AI judge is not available here, so this was marked by keyword check.'; }
       else aiNote = (e && e.code) === 'rate_limited' ? 'The AI judge is busy right now, so this was marked by keyword check.' : 'The AI judge did not answer, so this was marked by keyword check.';
     }
   }
   const sc = Math.round(kw.score*100);
-  return {score:sc, verdict: kw.score >= .5 ? 'correct' : kw.score >= .25 ? 'partial' : 'incorrect', feedback:'', missing:[], kw, ai:false};
+  const uniq = a => [...new Map(a.map(k => [k.key, k.w])).values()];
+  const got = uniq(kw.ks.filter(k => kw.hit.has(k.key))), miss = uniq(kw.ks.filter(k => !kw.hit.has(k.key)));
+  const list = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length-1];
+  return {score:sc, verdict: kw.score >= .5 ? 'correct' : kw.score >= .25 ? 'partial' : 'incorrect',
+    right: got.length ? `You included ${list(got.slice(0,5))}${got.length > 5 ? ' and more' : ''}.` : '',
+    improve: !miss.length ? 'Every key term is there. Check your explanation links them the way the model answer does.'
+      : got.length ? `Work in ${list(miss.slice(0,4))}${miss.length > 4 ? ', plus the rest of the model answer' : ''}.`
+      : `None of the key terms came through. Learn the model answer's core: ${list(miss.slice(0,3))}.`,
+    missing: miss.slice(0,3), kw, ai:false};
 }
 const VERDICT = {correct:['Correct','good'], partial:['Partly right','part'], incorrect:['Not quite','bad']};
 const passed = j => j.ai ? j.score >= 50 : j.kw.score >= .34;
@@ -440,7 +476,7 @@ function judgeHTML(card, j, extra=''){
   const [label, cl] = VERDICT[j.verdict];
   const note = aiNote; aiNote = '';
   return `<div class="feedback"><div class="jhead"><b class="${cl}">${label}</b><span class="jscore">${j.score}/100</span><span class="by">${j.ai ? 'AI judge' : 'Keyword check'}</span></div>
-    ${j.feedback ? `<p class="jfb">${esc(j.feedback)}</p>` : ''}
+    <div class="fbk">${j.right ? `<p class="ok"><small>What you got right</small>${esc(j.right)}</p>` : ''}${j.improve ? `<p class="fix"><small>${j.verdict === 'correct' ? 'To make it exam-ready' : 'To improve'}</small>${esc(j.improve)}</p>` : ''}</div>
     ${j.missing.length ? `<div class="missing"><small>Missing</small>${j.missing.map(m => `<span>${esc(m)}</span>`).join('')}</div>` : ''}
     <div class="model"><small>Model answer</small>${j.ai ? esc(card.a) : marked(card.a, j.kw)}</div>
     ${note ? `<p class="jnote">${note}</p>` : ''}${extra}</div>`;
@@ -449,28 +485,32 @@ function judgeHTML(card, j, extra=''){
 /* ---------- 01 learn ---------- */
 function learn(){
   clearTimers();
-  let queue = shuffle(pool().filter(c => !S.known[c.id])), cur = null, on = false, done = 0;
+  const ORDER = [2, 0, 1, 3, 4, 9];  // unseen sits between "barely" and "somewhat"
+  let queue = shuffle(pool().filter(c => (S.conf[c.id] || 0) < 5)).sort((x, y) => ORDER[S.conf[x.id] || 0] - ORDER[S.conf[y.id] || 0]), cur = null, on = false, done = 0;
   const total = pool().length;
-  if (!queue.length){ results('Everything mastered', total + ' / ' + total, 'Every card in ' + esc(deckLabel()) + ' is mastered. Prove it in Boss Battle, or pick another topic.', [], home); return; }
+  if (!queue.length){ results('Everything at 5', total + ' / ' + total, 'Every card in ' + esc(deckLabel()) + ' is rated "Perfectly". Prove it in Boss Battle, or pick another topic.', [], home); return; }
   function draw(){
-    if (!queue.length){ results('Round complete', done + ' mastered', 'Nice work on ' + esc(deckLabel()) + '.', [], learn); return; }
+    if (!queue.length){ results('Round complete', mastery(pool()) + '%', 'Mastery of ' + esc(deckLabel()) + ' after ' + done + ' ratings.', [], learn); return; }
     cur = queue.shift(); on = false; gen++;
-    const k = pool().filter(c => S.known[c.id]).length;
-    app.innerHTML = `<section class="stage">${topBar(`<div><span>MASTERED</span>${k} / ${total}</div><div><span>LEFT</span>${queue.length+1}</div>`)}
+    app.innerHTML = `<section class="stage">${topBar(`<div><span>MASTERY</span>${mastery(pool())}%</div><div><span>IN ROUND</span>${queue.length+1}</div>`)}
       <div class="fc" id="fc"><div class="q">${esc(cur.q)}</div><div class="a" id="ans">${esc(cur.a)}</div><div class="verdict" id="vd"></div></div>
       <div class="typebox"><textarea id="ty" rows="2" placeholder="Type what you remember, then press Enter. Or just tap Reveal."></textarea><button type="button" class="btn gold" id="rev">Reveal</button></div>
-      <div class="row"><button type="button" class="btn bad" id="no" disabled>Again (1)</button><button type="button" class="btn good" id="yes" disabled>Got it (2)</button></div>
-      <p class="hint">Typing first makes it stick. Your answer gets marked before you rate yourself.</p></section>`;
+      ${confRow()}
+      <p class="hint">Type first and your answer gets marked, with a suggested rating. Keys 1 to 5 rate. Low ratings bring the card back sooner.</p></section>`;
     wireBack(); $('#ty').focus({preventScroll:true});
+    const btns = [...app.querySelectorAll('.cbtn')]; btns.forEach(x => x.disabled = true);
     const reveal = () => { if (on) return; on = true; const typed = $('#ty').value.trim();
-      $('#fc').classList.add('on'); $('#no').disabled = $('#yes').disabled = false; $('#rev').disabled = true; $('#ty').disabled = true;
+      $('#fc').classList.add('on'); btns.forEach(x => x.disabled = false); $('#rev').disabled = true; $('#ty').disabled = true;
       if (typed){ const my = gen, c0 = cur; $('#ans').style.display = 'none'; $('#vd').innerHTML = thinkingHTML();
-        judge(c0, typed).then(j => { if (my !== gen) return; $('#vd').innerHTML = judgeHTML(c0, j); blip(j.verdict === 'incorrect' ? 'bad' : 'good'); }); } };
+        judge(c0, typed).then(j => { if (my !== gen) return; $('#vd').innerHTML = judgeHTML(c0, j); blip(j.verdict === 'incorrect' ? 'bad' : 'good');
+          const sg = suggestConf(j.score); btns.forEach(x => x.classList.toggle('sug', +x.dataset.r === sg)); }); } };
     $('#rev').onclick = reveal; $('#fc').onclick = reveal;
     $('#ty').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); reveal(); } };
-    $('#yes').onclick = () => { S.known[cur.id] = 1; save(); done++; gain(6); blip('good'); draw(); };
-    $('#no').onclick = () => { queue.splice(Math.min(queue.length, 3), 0, cur); draw(); };
-    onKeys(e => { if (!on || e.target.tagName === 'TEXTAREA') return; if (e.key === '1') $('#no').click(); if (e.key === '2') $('#yes').click(); });
+    const rate = r => { if (!on) return; setConf(cur.id, r); done++; gain(2 + r); blip(r >= 4 ? 'good' : r <= 2 ? 'bad' : 'good');
+      if (r < 5){ const at = r === 1 ? 2 : r === 2 ? 4 : r === 3 ? 8 : queue.length; queue.splice(Math.min(queue.length, at), 0, cur); }
+      draw(); };
+    btns.forEach(x => x.onclick = () => rate(+x.dataset.r));
+    onKeys(e => { if (!on || e.target.tagName === 'TEXTAREA') return; const k = +e.key; if (k >= 1 && k <= 5) rate(k); });
   }
   draw();
 }
@@ -483,7 +523,7 @@ function recall(){
   function ask(){
     if (n >= qs.length){ gain(15 + right*8); if (right >= 6) confetti(); blip('win');
       const k = bestKey('recall'), isBest = pts > (S.best[k]||0); if (isBest){ S.best[k] = pts; save(); }
-      results(right >= 6 ? 'Total recall' : 'Recall complete', pts + ' pts', right + ' / ' + qs.length + ' answered well' + (isBest ? ' · new best' : ''), missed, recall); return; }
+      onKeys(null); results(right >= 6 ? 'Total recall' : 'Recall complete', pts + ' pts', right + ' / ' + qs.length + ' answered well' + (isBest ? ' · new best' : ''), missed, recall); return; }
     const c = qs[n];
     app.innerHTML = `<section class="stage">${topBar(`<div><span>Q</span>${n+1}/${qs.length}</div><div><span>SCORE</span>${pts}</div>`)}
       <div class="prompt"><small>${esc(DECKS[c.d].name)} · type your answer</small>${esc(c.q)}</div>
@@ -494,11 +534,15 @@ function recall(){
     const submit = async () => { if (done) return; done = true; const my = gen;
       $('#ty').disabled = true; $('#go').disabled = true; $('#fb').innerHTML = thinkingHTML();
       const j = await judge(c, $('#ty').value); if (my !== gen) return; const p = j.score;
-      $('#fb').innerHTML = judgeHTML(c, j, `<div class="row"><button type="button" class="btn" id="ovr">I actually knew it</button><button type="button" class="btn gold" id="nx">Next →</button></div>`);
+      const sg = suggestConf(j.score);
+      $('#fb').innerHTML = judgeHTML(c, j, `${confRow(sg)}<div class="row ovrow"><button type="button" class="btn" id="ovr">The marking was wrong: I knew it</button></div>`);
       let got = passed(j); pts += p; if (!got) missed.push(c); else right++;
       blip(got ? 'good' : 'bad');
       $('#ovr').onclick = () => { if (!got){ got = true; right++; missed.pop(); pts += 50 - Math.min(50, p); $('#ovr').disabled = true; $('#ovr').textContent = 'Counted as right'; } };
-      $('#nx').onclick = () => { n++; ask(); }; $('#nx').focus({preventScroll:true}); };
+      const next = r => { setConf(c.id, r); onKeys(null); n++; ask(); };
+      app.querySelectorAll('.cbtn').forEach(x => x.onclick = () => next(+x.dataset.r));
+      onKeys(e => { if (e.target.tagName === 'TEXTAREA' || e.repeat) return; const k = +e.key; if (k >= 1 && k <= 5) next(k); else if (e.key === 'Enter'){ e.preventDefault(); next(sg); } });
+      app.querySelector('.cbtn.sug').focus({preventScroll:true}); };
     $('#go').onclick = submit;
     $('#ty').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); submit(); } };
   }
