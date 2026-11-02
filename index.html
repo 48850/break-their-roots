@@ -316,15 +316,16 @@ body::before{content:"";position:fixed;inset:0;z-index:59;pointer-events:none;ba
 /* photographs of places go cold; documents, maps and illustrations keep their colour */
 .pair img{filter:grayscale(1) contrast(1.12) brightness(.85)}
 .cold img{filter:grayscale(1) contrast(1.12) brightness(.85)}
-/* the score: a quiet background recording, toggled on and off */
+/* the score: Max Richter via a slim Spotify player */
 .score{position:fixed;z-index:80;left:var(--gl);bottom:calc(env(safe-area-inset-bottom,0px) + 16px)}
 .score-btn{display:flex;align-items:center;gap:10px;padding:8px 14px 8px 10px;background:rgba(8,9,12,.92);border:1px solid var(--red);box-shadow:0 0 0 4px rgba(214,58,43,.18);color:var(--ink);font:inherit;cursor:pointer;text-align:left;transition:border-color .2s}
 .score-btn:hover,.score-btn:focus-visible{background:var(--night-2);outline:none}
 .score-btn b{display:block;font-family:var(--f-label);font-stretch:85%;font-size:13px;letter-spacing:.1em;text-transform:uppercase}
 .score-btn small{display:block;font-family:var(--f-label);font-stretch:88%;font-size:12.5px;color:var(--ink-3)}
 .score-ic{width:28px;height:28px;border-radius:50%;border:1px solid var(--red);background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 7l9 5-9 5z' fill='%23d63a2b'/%3E%3C/svg%3E") center/16px no-repeat;flex:none}
-[data-score].on .score-ic{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 7h3v10H8zM13 7h3v10h-3z' fill='%23d63a2b'/%3E%3C/svg%3E");animation:breathe 2.4s ease-in-out infinite}
-@keyframes breathe{50%{box-shadow:0 0 0 6px rgba(214,58,43,.22)}}
+.score-dock{position:relative;width:min(400px,calc(100vw - 32px));box-shadow:0 10px 30px rgba(0,0,0,.6)}
+.score-dock iframe{display:block;width:100%;height:80px;border:0;border-radius:12px}
+.score-x{position:absolute;top:-12px;right:-10px;z-index:2;width:26px;height:26px;border-radius:50%;border:1px solid var(--rule);background:var(--night);color:var(--ink);font-size:17px;line-height:1;cursor:pointer}
 @media (max-width:600px){.score-btn small{display:none}}
 .hero-listen{display:inline-flex;align-items:center;gap:10px;margin-top:22px;padding:10px 16px 10px 10px;background:rgba(8,9,12,.6);border:1px solid var(--red);color:var(--night-ink);font-family:var(--f-label);font-stretch:85%;font-weight:700;font-size:14px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
 .hero-listen small{font-weight:500;letter-spacing:.03em;text-transform:none;color:var(--night-ink-2);font-size:13px}
@@ -359,20 +360,22 @@ h2.declass .bar{animation:declass 1.1s cubic-bezier(.7,0,.3,1) forwards}
 <div class="progress" id="progress" aria-hidden="true"></div>
 <div class="hud" id="hud" aria-hidden="true"><i class="dot"></i><span>BEIJING TIME</span><b id="clock2">--:--:--</b></div>
 <div class="score" id="score">
-  <button type="button" class="score-btn" data-score aria-pressed="false"><span class="score-ic" aria-hidden="true"></span><span><b class="score-state">Play the score</b><small>Bach · Air on the G String</small></span></button>
-  <audio id="scoreAudio" src="media/score-air.mp3" preload="none" loop></audio>
+  <button type="button" class="score-btn" data-score aria-expanded="false"><span class="score-ic" aria-hidden="true"></span><span><b>Play the score</b><small>Max Richter · On the Nature of Daylight</small></span></button>
+  <div class="score-dock" id="scoreDock" hidden>
+    <button type="button" class="score-x" id="scoreClose" aria-label="Close the music player">×</button>
+    <div id="scoreFrame"></div>
+  </div>
 </div>
 <script>
 (() => {
-  const a = document.getElementById('scoreAudio'); let fade = null, on = false;
-  const ramp = (to, done) => { clearInterval(fade); fade = setInterval(() => { const v = a.volume + (to > a.volume ? .04 : -.04);
-    if ((to > a.volume && v >= to) || (to <= a.volume && v <= to)) { a.volume = to; clearInterval(fade); done && done(); } else a.volume = Math.max(0, Math.min(1, v)); }, 60); };
-  const paint = () => document.querySelectorAll('[data-score]').forEach(b => { b.setAttribute('aria-pressed', on); b.classList.toggle('on', on);
-    const s = b.querySelector('.score-state'); if (s) s.textContent = on ? 'Pause the score' : (b.classList.contains('hero-listen') ? 'Listen while you read' : 'Play the score'); });
-  const toggle = () => { on = !on; paint();
-    if (on){ a.volume = 0; a.play().then(() => ramp(.7)).catch(() => { on = false; paint(); }); }
-    else ramp(0, () => a.pause()); };
-  document.addEventListener('click', e => { if (e.target.closest('[data-score]')) toggle(); });
+  const dock = document.getElementById('scoreDock'), frame = document.getElementById('scoreFrame'), pill = document.querySelector('.score-btn');
+  const open = () => {
+    if (!frame.firstChild) frame.innerHTML = '<iframe src="https://open.spotify.com/embed/track/5DFUsGW4Cmltv8Spd0u1aV?utm_source=generator&theme=0" height="80" title="Max Richter, On the Nature of Daylight, on Spotify" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>';
+    dock.hidden = false; pill.hidden = true; pill.setAttribute('aria-expanded', 'true');
+  };
+  const close = () => { frame.innerHTML = ''; dock.hidden = true; pill.hidden = false; pill.setAttribute('aria-expanded', 'false'); };
+  document.addEventListener('click', e => { if (e.target.closest('[data-score]')) open(); });
+  document.getElementById('scoreClose').addEventListener('click', close);
 })();
 </script>
 <header class="hero" id="top">
@@ -384,7 +387,7 @@ h2.declass .bar{animation:declass 1.1s cubic-bezier(.7,0,.3,1) forwards}
     <h1>Break Their Roots</h1>
     <p class="dek">Since 2017, an estimated one million or more Uyghurs have been detained in Xinjiang. Leaked documents, court records and the testimony of separated families reveal a campaign aimed at an entire people's identity, and a world that has failed to stop it.</p>
     <div class="byline">By <b>Elliot Thevathasan</b> · Year 10 Global Politics · 31 October 2026</div>
-    <button type="button" class="hero-listen" data-score aria-pressed="false"><span class="score-ic" aria-hidden="true"></span><span class="score-state">Listen while you read</span> <small>Bach · Air on the G String</small></button>
+    <button type="button" class="hero-listen" data-score><span class="score-ic" aria-hidden="true"></span>Listen while you read <small>Max Richter · On the Nature of Daylight</small></button>
   </div>
   <div class="hero-credit">Id Kah Mosque, Kashgar. Photo: David Stanley, CC BY 2.0</div>
 </header>
@@ -741,7 +744,7 @@ h2.declass .bar{animation:declass 1.1s cubic-bezier(.7,0,.3,1) forwards}
   </ol>
   <span class="label">Music</span>
   <ol>
-    <li>Bach, J. S. <a href="https://commons.wikimedia.org/wiki/File:Air.ogg" target="_blank" rel="noopener">Air on the G String</a>. Performed by the United States Air Force Strings, conducted by Keith H. Bland (2000). Public domain, via Wikimedia Commons.</li>
+    <li>Richter, M. (2004) <a href="https://open.spotify.com/track/5DFUsGW4Cmltv8Spd0u1aV" target="_blank" rel="noopener">On the Nature of Daylight</a>. From <i>The Blue Notebooks</i>. Played via Spotify.</li>
   </ol>
   <span class="label">Images and video</span>
   <ol>
