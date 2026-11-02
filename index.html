@@ -316,6 +316,20 @@ body::before{content:"";position:fixed;inset:0;z-index:59;pointer-events:none;ba
 /* photographs of places go cold; documents, maps and illustrations keep their colour */
 .pair img{filter:grayscale(1) contrast(1.12) brightness(.85)}
 .cold img{filter:grayscale(1) contrast(1.12) brightness(.85)}
+/* the score: Max Richter, played in a small docked player */
+.score{position:fixed;z-index:80;left:var(--gl);bottom:calc(env(safe-area-inset-bottom,0px) + 16px)}
+.score-btn{display:flex;align-items:center;gap:10px;padding:8px 14px 8px 10px;background:rgba(8,9,12,.88);border:1px solid var(--rule);color:var(--ink);font:inherit;cursor:pointer;text-align:left;transition:border-color .2s}
+.score-btn:hover,.score-btn:focus-visible{border-color:var(--red);outline:none}
+.score-btn b{display:block;font-family:var(--f-label);font-stretch:85%;font-size:13px;letter-spacing:.1em;text-transform:uppercase}
+.score-btn small{display:block;font-family:var(--f-label);font-stretch:88%;font-size:12.5px;color:var(--ink-3)}
+.score-ic{width:28px;height:28px;border-radius:50%;border:1px solid var(--red);background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 7l9 5-9 5z' fill='%23d63a2b'/%3E%3C/svg%3E") center/16px no-repeat;flex:none}
+.score-dock{background:rgba(8,9,12,.94);border:1px solid var(--rule);padding:8px;width:min(372px,calc(100vw - 32px))}
+.score-top{display:flex;justify-content:space-between;align-items:center;gap:10px;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;color:var(--ink-3);margin-bottom:6px}
+.score-top button{background:none;border:0;color:var(--ink-2);font-size:22px;line-height:1;cursor:pointer;padding:0 4px}
+.score-frame{width:100%;aspect-ratio:16/9;min-height:200px;background:#000}
+.score-frame iframe{width:100%;height:100%;min-height:200px;border:0;display:block}
+.score-dock a{display:block;margin-top:6px;font-family:var(--f-label);font-stretch:88%;font-size:12px;color:var(--ink-3)}
+@media (max-width:600px){.score-dock{width:240px}.score-btn small{display:none}}
 /* evidence brackets */
 .brk{position:relative}
 .brk::after{content:"";position:absolute;inset:-7px;pointer-events:none;
@@ -343,6 +357,26 @@ h2.declass .bar{animation:declass 1.1s cubic-bezier(.7,0,.3,1) forwards}
 <!-- ============ HERO ============ -->
 <div class="progress" id="progress" aria-hidden="true"></div>
 <div class="hud" id="hud" aria-hidden="true"><i class="dot"></i><span>BEIJING TIME</span><b id="clock2">--:--:--</b></div>
+<div class="score" id="score">
+  <button type="button" class="score-btn" id="scoreBtn" aria-expanded="false"><span class="score-ic" aria-hidden="true"></span><span><b>Play the score</b><small>Max Richter · On the Nature of Daylight</small></span></button>
+  <div class="score-dock" id="scoreDock" hidden>
+    <div class="score-top"><span>NOW PLAYING · MAX RICHTER</span><button type="button" id="scoreClose" aria-label="Stop the music and close the player">×</button></div>
+    <div class="score-frame" id="scoreFrame"></div>
+    <a href="https://www.youtube.com/watch?v=_Gd96mSMHfI" target="_blank" rel="noopener">Not playing? Open on YouTube ↗</a>
+  </div>
+</div>
+<script>
+(() => {
+  const ID = '_Gd96mSMHfI', btn = document.getElementById('scoreBtn'), dock = document.getElementById('scoreDock'), frame = document.getElementById('scoreFrame');
+  const open = () => {
+    frame.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + ID + '?autoplay=1&loop=1&playlist=' + ID + '&rel=0&playsinline=1" title="Max Richter, On the Nature of Daylight" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+    dock.hidden = false; btn.hidden = true; btn.setAttribute('aria-expanded', 'true');
+  };
+  const close = () => { frame.innerHTML = ''; dock.hidden = true; btn.hidden = false; btn.setAttribute('aria-expanded', 'false'); btn.focus(); };
+  btn.addEventListener('click', open);
+  document.getElementById('scoreClose').addEventListener('click', close);
+})();
+</script>
 <header class="hero" id="top">
   <img id="heroImg" src="media/idkah.jpg" alt="" width="1024" height="768">
   <div class="corners" aria-hidden="true"></div>
@@ -705,6 +739,10 @@ h2.declass .bar{animation:declass 1.1s cubic-bezier(.7,0,.3,1) forwards}
     <li>BBC News (2019) <a href="https://youtu.be/VRS5cdcsUOc" target="_blank" rel="noopener">Xinjiang: China, Where Are My Children?</a></li>
     <li>Doha Debates (2019) <a href="https://youtu.be/66pGWXEXPGw" target="_blank" rel="noopener">China's Uyghur Detention Camps: Will I See My Family Again?</a></li>
     <li>The Wall Street Journal (2017) <a href="https://www.youtube.com/watch?v=OQ5LnY21Hgc" target="_blank" rel="noopener">Life Inside China's Total Surveillance State</a>.</li>
+  </ol>
+  <span class="label">Music</span>
+  <ol>
+    <li>Richter, M. (2004) <a href="https://www.youtube.com/watch?v=_Gd96mSMHfI" target="_blank" rel="noopener">On the Nature of Daylight</a>. First released on <i>The Blue Notebooks</i>; played from Max Richter's official audio upload (from the <i>Hamnet</i> soundtrack) on YouTube.</li>
   </ol>
   <span class="label">Images and video</span>
   <ol>
